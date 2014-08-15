@@ -205,6 +205,7 @@ public class AllinpayService {
 		//str += tmp;
 		if (null == tmp || tmp.equals(""))
 			return pageNo.equals("1") ? null: returnOrders;
+		//根据返回报文的头部信息判断是否有下一页，是否需要继续查询
 		if (headInfos.get(Integer.parseInt(pageNo) - 1).getCount() < 500 && !headInfos.get(Integer.parseInt(pageNo) - 1).isFlag())
 			return returnOrders;
 		else if (headInfos.get(Integer.parseInt(pageNo) - 1).getCount() == 500 && headInfos.get(Integer.parseInt(pageNo) - 1).isFlag()) {
@@ -215,47 +216,85 @@ public class AllinpayService {
 	
 	/**
 	 * 找到差异订单，并写到一个文件中
-	 * @param returnOrders2
+	 * 目前是先找到订单号相同的订单，再判断金额与状态是否一致，如果不一致将记录写入到文件中去:
+	 * 	文件格式:第三方订单信息$pay_orders表订单信息：
+	 * 		字段含义:商户号|通联订单号|商户订单号|商户订单提交时间|商户订单金额|支付完成时间|订单实际支付金额|处理结果$用户id|用户名|订单id|订单金额|订单提交时间|订单状态
+	 * 		如：100020091218001|201408141351303291|20140814015552683367|33.33|20140814015552|33.33|20140814135132|33.33|1$92263595|donglin0325|20140814015552683367|33.13|20140814135552|1
+	 * @param returnOrders
 	 * @param orders
 	 * @return
 	 */
-	public String findDiffWriteFile(List<ReturnOrder> returnOrders2, List<Order> orders) {
+	public String findDiffWriteFile(List<ReturnOrder> returnOrders, List<Order> orders) {
 		StringBuffer str = new StringBuffer();
 		BufferedWriter bw = null;
-		SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+		List<ReturnOrder> existsReturnOrder = new ArrayList<ReturnOrder>();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+		String tmp = "";
+		//String headInfo = "商户号|通联订单号|商户订单号|商户订单提交时间|商户订单金额|支付完成时间|订单实际支付金额|处理结果$用户id|用户名|订单id|订单金额|订单提交时间|订单状态";
+		Date date = new Date();
 		try {
-			bw = new BufferedWriter(new FileWriter("d:/t/result.txt", true));
-			if(null == returnOrders2 || null == orders) return null;
-			for(int i=0; i<returnOrders2.size(); i++){
-				for(int j=0; j<orders.size(); j++){
-					if(returnOrders2.get(i).getOrderId().equals(orders.get(j).getId())){//判断是否同一笔订单
-						//判断两个订单金额是否一致:不一致将两个订单写到文件中
-						if(returnOrders2.get(i).getPayMoney() == orders.get(j).getMoney() && returnOrders2.get(i).getOrderMoney() == orders.get(j).getMoney()){
-							logger.info("订单信息一致！");
+			bw = new BufferedWriter(new FileWriter("d:/t/allipany_" + dateFormat.format(date) +".txt", true));
+			if(null == returnOrders) return null;
+			//判断两个订单信息是否一致，并将第三方中存在订单记录到existsReturnOrder中
+			//bw.write("字段格式含义:" + headInfo + "\r\n");;
+			for(int i=0; i<orders.size(); i++){
+				for(int j=0; j<returnOrders.size(); j++){
+					if(orders.get(i).getId().equals(returnOrders.get(j).getOrderId())){//判断是否同一笔订单
+						if((orders.get(i).getPayStatus() + "").equals(returnOrders.get(j).getFlag())){//订单状态是否一致
+							if(orders.get(i).getMoney() == returnOrders.get(j).getPayMoney()
+									&& orders.get(i).getMoney() == returnOrders.get(j).getOrderMoney()){
+								logger.info("订单信息一致:" + returnOrders.get(j).toString());
+							}else {
+								//通联订单信息
+								String returnOrder = returnOrderStr(returnOrders.get(j));
+								//新华订单信息
+								String order = orderStr(orders.get(i));
+								tmp = returnOrder + "$" + order + "\r\n";
+								str.append("订单金额不一致:" + tmp);
+								bw.write("订单金额不一致:" + tmp);
+								logger.info("订单信息不一致（订单金额不一致）:" + tmp);
+							}
 						}else{
 							//通联订单信息
-							String returnOrder = returnOrders2.get(i).getMerchantId() + "|" 
-												+ returnOrders2.get(i).getAllinpayId() + "|"
-												+ returnOrders2.get(i).getOrderId() + "|"
-												+ returnOrders2.get(i).getOrderMoney() + "|"
-												+ format.format(returnOrders2.get(i).getOrderComTime()) + "|"
-												+ returnOrders2.get(i).getOrderMoney() + "|"
-												+ format.format(returnOrders2.get(i).getOrderSucTime()) + "|"
-												+ returnOrders2.get(i).getPayMoney() + "|"
-												+ returnOrders2.get(i).getFlag();
+							String returnOrder = returnOrderStr(returnOrders.get(j));
 							//新华订单信息
-							String order = orders.get(j).getUid() + "|"
-										+ orders.get(j).getLoginName() + "|"
-										+ orders.get(j).getId() + "|"
-										+ orders.get(j).getMoney() + "|"
-										+ format.format(orders.get(j).getPayTime()) + "|"									
-										+ orders.get(j).getPayStatus();
-							str.append(returnOrder + "$" + order + "\r\n");
-							bw.write(returnOrder + "$" + order + "\r\n");
+							String order = orderStr(orders.get(i));
+							tmp = returnOrder + "$" + order + "\r\n";
+							str.append("订单状态不一致:" + tmp);
+							bw.write("订单状态不一致:" + tmp);
+							logger.info("订单信息不一致（订单状态不一致）:" + tmp);
 						}
+						existsReturnOrder.add(returnOrders.get(j));
 					}
 				}
 			}
+			
+			//existsReturnOrder.size()=0说明所有的returnOrders都不在pay_orders表中
+			if(0 == existsReturnOrder.size()){
+				//输出在第三方存在的订单，并且不再pay_orders表中的订单
+				for(int i=0; i<returnOrders.size(); i++){
+					//通联订单信息
+					String returnOrder = returnOrderStr(returnOrders.get(i));
+					tmp = returnOrder + "$" + "\r\n";
+					str.append("pay_orders中不存在的记录:" + tmp);
+					bw.write("pay_orders中不存在的记录:" + tmp);
+					logger.info("订单信息不一致（pay_orders中不存在的记录）:" + tmp);
+				}
+			}else{
+				boolean tmpFlag = returnOrders.removeAll(existsReturnOrder);
+				if(tmpFlag && 0 <= returnOrders.size()){
+					//输出在第三方存在的订单，并且不再pay_orders表中的订单
+					for(int i=0; i<returnOrders.size(); i++){
+						//通联订单信息
+						String returnOrder = returnOrderStr(returnOrders.get(i));
+						tmp = returnOrder + "$" + "\r\n";
+						str.append("pay_orders中不存在的记录:" + tmp);
+						bw.write("pay_orders中不存在的记录:" + tmp);
+						logger.info("订单信息不一致（pay_orders中不存在的记录）:" + tmp);
+					}
+				}
+			}		
+			
 			bw.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -267,6 +306,44 @@ public class AllinpayService {
 			}
 		}	
 		return str.toString();
+	}
+	
+	/**
+	 * 通联订单输出文件信息
+	 * @param returnOrder
+	 * @return
+	 */
+	private String returnOrderStr(ReturnOrder returnOrder){
+		StringBuffer sb = new StringBuffer();
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+		sb.append(returnOrder.getMerchantId() + "|");
+		sb.append(returnOrder.getAllinpayId() + "|");
+		sb.append(returnOrder.getOrderId() + "|");		
+		sb.append(format.format(returnOrder.getOrderComTime()) + "|");
+		sb.append(returnOrder.getOrderMoney() + "|");
+		sb.append(format.format(returnOrder.getOrderSucTime()) + "|");
+		sb.append(returnOrder.getPayMoney() + "|");
+		sb.append(returnOrder.getFlag());
+		
+		return sb.toString();
+	}
+	
+	/**
+	 * pay_order输出文件信息
+	 * @param order
+	 * @return
+	 */
+	private String orderStr(Order order){
+		StringBuffer sb = new StringBuffer();		
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+		sb.append(order.getUid() + "|");
+		sb.append(order.getLoginName() + "|");	
+		sb.append(order.getId() + "|");
+		sb.append(order.getMoney() + "|");
+		sb.append(format.format(order.getPayTime()) + "|");
+		sb.append(order.getPayStatus());
+		
+		return sb.toString();
 	}
 
 }

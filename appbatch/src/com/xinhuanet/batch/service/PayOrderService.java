@@ -12,6 +12,7 @@ import com.xinhuanet.batch.po.Order;
 
 @Component
 public class PayOrderService {
+	
 	@Autowired
 	private PayOrderDao payOrderDao;
 

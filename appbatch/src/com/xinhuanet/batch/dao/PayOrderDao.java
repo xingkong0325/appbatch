@@ -14,7 +14,8 @@ public class PayOrderDao extends BaseDAO{
 	//private static final Logger logger = Logger.getLogger(PayOrderDao.class);
 	
 	public List<Order> qureyListOrder(Date beginTime, Date endTime, String paytype){
-		String sql = "select * from pay_orders a where a.paystatus='1' and a.paytime>=? and a.paytime<=? and a.paytype=?";
+		//a.paystatus='1' and 
+		String sql = "select * from pay_orders a where a.paytime>=? and a.paytime<=? and a.paytype=?";
 		Object[] params = new Object[]{beginTime, endTime, paytype};
 		List<Order> orders = getJdbcTemplate(READ).query(sql, params, new OrdersRowMapper());;
 		return orders;
