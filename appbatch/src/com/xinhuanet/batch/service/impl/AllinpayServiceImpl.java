@@ -26,6 +26,7 @@ import com.xinhuanet.batch.po.HeadInfo;
 import com.xinhuanet.batch.po.Order;
 import com.xinhuanet.batch.po.ReturnOrder;
 import com.xinhuanet.batch.service.AllinpayService;
+import com.xinhuanet.batch.service.PayOrderService;
 
 /**
  * 通联批量查询
@@ -36,6 +37,10 @@ import com.xinhuanet.batch.service.AllinpayService;
 @Component
 public class AllinpayServiceImpl implements AllinpayService{
 	private static final Logger logger = Logger.getLogger(AllinpayServiceImpl.class);
+	
+	@Autowired
+	private PayOrderService payOrderService;
+	
 	@Autowired
 	private Http4Client http4Cilent;
 	
@@ -226,7 +231,7 @@ public class AllinpayServiceImpl implements AllinpayService{
 								//通联订单信息
 								String returnOrder = returnOrderStr(returnOrders.get(j));
 								//新华订单信息
-								String order = orderStr(orders.get(i));
+								String order = payOrderService.orderStr(orders.get(i));
 								tmp = returnOrder + "$" + order + "\r\n";
 								str.append("订单金额不一致:" + tmp);
 								bw.write("订单金额不一致:" + tmp);
@@ -236,7 +241,7 @@ public class AllinpayServiceImpl implements AllinpayService{
 							//通联订单信息
 							String returnOrder = returnOrderStr(returnOrders.get(j));
 							//新华订单信息
-							String order = orderStr(orders.get(i));
+							String order = payOrderService.orderStr(orders.get(i));
 							tmp = returnOrder + "$" + order + "\r\n";
 							str.append("订单状态不一致:" + tmp);
 							bw.write("订单状态不一致:" + tmp);
@@ -302,24 +307,6 @@ public class AllinpayServiceImpl implements AllinpayService{
 		sb.append(format.format(returnOrder.getOrderSucTime()) + "|");
 		sb.append(returnOrder.getPayMoney() + "|");
 		sb.append(returnOrder.getFlag());
-		
-		return sb.toString();
-	}
-	
-	/**
-	 * pay_order输出文件信息
-	 * @param order
-	 * @return
-	 */
-	private String orderStr(Order order){
-		StringBuffer sb = new StringBuffer();		
-		SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
-		sb.append(order.getUid() + "|");
-		sb.append(order.getLoginName() + "|");	
-		sb.append(order.getId() + "|");
-		sb.append(order.getMoney() + "|");
-		sb.append(format.format(order.getPayTime()) + "|");
-		sb.append(order.getPayStatus());
 		
 		return sb.toString();
 	}

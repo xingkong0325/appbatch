@@ -34,4 +34,23 @@ public class PayOrderServiceImpl implements PayOrderService{
 		}
 		return orders;
 	}
+	
+	/**
+	 * pay_order输出文件格式信息
+	 * @param order
+	 * @return
+	 */
+	@Override
+	public String orderStr(Order order){
+		StringBuffer sb = new StringBuffer();		
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+		sb.append(order.getUid() + "|");
+		sb.append(order.getLoginName() + "|");	
+		sb.append(order.getId() + "|");
+		sb.append(order.getMoney() + "|");
+		sb.append(format.format(order.getPayTime()) + "|");
+		sb.append(order.getPayStatus());
+		
+		return sb.toString();
+	}
 }
